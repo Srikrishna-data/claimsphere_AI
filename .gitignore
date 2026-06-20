@@ -1,0 +1,16 @@
+# secrets - never commit your API key
+.env
+
+# generated at runtime - don't commit fake/test data
+data/claims.db
+data/photos/
+data/reports/
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS junk
+.DS_Store
