@@ -1,152 +1,188 @@
-# ClaimSphere AI (Simple Edition)
+# ClaimSphere AI
 
-A multi-agent AI system that processes vehicle insurance claims end to end:
-reads the claim form, checks claim history, detects photo-based fraud, estimates
-repair cost, and produces a downloadable PDF report.
+A multi-agent AI system that automates vehicle insurance claim processing end to end.
+The adjuster logs in, enters a policy number, types the claim details, uploads accident
+photos — and the system handles the rest: reads the form, checks fraud, estimates repair
+cost, and generates a downloadable PDF report.
 
-This is the **simplified, beginner-friendly version** of the project. It
-intentionally avoids heavy frameworks (LangGraph, vector databases, Docker)
-so that every line of code is something you can read and understand. See
-[`docs/why-no-frameworks.md`](docs/why-no-frameworks.md) for the reasoning.
+---
 
-## How it works
+## What it actually does
 
 ```
-Login → Upload claim form + photos
-            │
-            ▼
-   Agent 1: read form + check claim history (database)
-            │
-            ▼
-   Agent 2: fraud check (compares new photo vs old photos)
-            │
-       ┌────┴────┐
-   fraud found   no fraud
-       │             │
-   stop, flag    Agent 3: estimate repair cost from photos
-       │             │
-       └──────┬──────┘
-              ▼
-   Agent 4: build PDF report → download
+Login
+  │
+  ▼
+Enter Policy Number → pulls full claim history from PostgreSQL
+  │
+  ▼
+Type claim details + upload accident photos
+  │
+  ▼
+Agent 1 — reads the claim form text, extracts structured fields,
+          cross-checks claim history from the database
+  │
+  ▼
+Agent 2 — compares the new uploaded photo against the previously
+          stored photo for this policy (fraud detection)
+  │
+  ┌──────────────┴──────────────┐
+fraud detected              no fraud
+  │                             │
+pipeline stops            Agent 3 — estimates repair cost
+  │                       from the damage photos
+  └──────────┬────────────┘
+             ▼
+Agent 4 — generates a PDF report with the full decision
+  │
+  ▼
+Download PDF + claim row saved to PostgreSQL
 ```
 
-There are 4 "agents." Each one is just a Python function. There is no
-orchestration framework - `app/main_app.py` calls them in order, the same
-way you'd call any other function, passing each one's output dict into
-the next.
+---
 
-| Agent | File | What it does | Needs AI? |
-|---|---|---|---|
-| 1. Intake | `app/agent_1_intake.py` | Extracts name/policy number/etc from the form text, looks up past claims in the database | Yes - text |
-| 2. Fraud check | `app/agent_2_fraud_check.py` | Compares the new photo against any previously stored photo for that policy number | Yes - vision |
-| 3. Cost estimate | `app/agent_3_cost_estimate.py` | Reads damage severity from photos, estimates repair cost | Yes - vision |
-| 4. Report | `app/agent_4_report.py` | Combines the other 3 agents' outputs into a PDF | No - just formatting |
+## Tech stack
 
-Agent 3 only runs if Agent 2 does not flag fraud. That logic is a plain
-`if` statement in `main_app.py` - see [`docs/architecture.md`](docs/architecture.md)
-for the full walkthrough.
+| Layer | Tool | Why |
+|---|---|---|
+| UI | Streamlit | Fast to build, easy to demo |
+| Agent 1 (text) | Groq — LLaMA 3.3 70B | Free tier, fast inference, good at structured extraction |
+| Agent 2 & 3 (vision) | Gemini Vision | Multimodal — can compare and analyze photos |
+| Database | PostgreSQL | Stores claim history per policy number |
+| Photo storage | Local folder per policy number | Organized by policy, used for fraud comparison |
+| PDF generation | fpdf2 | No AI needed here — just formatting |
+
+No LangGraph. No LangChain. No vector database. No Docker.
+Each agent is a plain Python function. The "pipeline" is just calling them in order.
+
+---
 
 ## Project structure
 
 ```
-claimsphere-simple/
-├── app/
-│   ├── main_app.py              # Streamlit app + orchestration (the "graph")
-│   ├── agent_1_intake.py        # form extraction + history lookup
-│   ├── agent_2_fraud_check.py   # photo-vs-photo fraud detection
-│   ├── agent_3_cost_estimate.py # repair cost estimation
-│   └── agent_4_report.py        # PDF generation
-├── utils/
-│   └── database.py              # SQLite setup + queries (the one table we need)
-├── data/                        # created automatically at runtime
-│   ├── claims.db                # SQLite database file
-│   ├── photos/<policy_number>/  # uploaded photos, organized by policy
-│   └── reports/                 # generated PDF reports
-├── docs/
-│   ├── architecture.md          # why each piece exists, in plain language
-│   └── why-no-frameworks.md     # why this skips LangGraph/RAG/Docker
-├── requirements.txt
-├── .env.example
-└── README.md
+claimsphere-ai/
+├── final_version_1.py       # Streamlit app — login, UI, pipeline orchestration
+├── agent_1_intake.py        # Groq: extracts fields from claim text + DB history lookup
+├── agent_2_fraud_check.py   # Gemini Vision: compares new photo vs stored photo
+├── agent_3_cost_estimate.py # Gemini Vision: reads damage and estimates repair cost
+├── agent_4_report.py        # fpdf2: builds the PDF report, no AI call
+├── database.py              # PostgreSQL connection + queries (get history, insert claim)
+├── data/
+│   ├── photos/              # one subfolder per policy number, stores uploaded photos
+│   └── reports/             # generated PDF reports saved here
+└── requirements.txt
 ```
 
-## Running it yourself
+---
 
-**1. Clone and install dependencies**
+## How to run it
+
+**1. Clone the repo**
 
 ```bash
-git clone <your-repo-url>
-cd claimsphere-simple
+git clone https://github.com/<your-username>/claimsphere-ai
+cd claimsphere-ai
+```
+
+**2. Install dependencies**
+
+```bash
 pip install -r requirements.txt
 ```
 
-**2. Set your Anthropic API key**
+**3. Set up your API keys**
+
+You need two API keys — both have free tiers:
 
 ```bash
-cp .env.example .env
-# then edit .env and paste your real key, OR just export it directly:
-export ANTHROPIC_API_KEY=sk-ant-your-key-here
+# Groq (Agent 1) — get from https://console.groq.com
+export GROQ_API_KEY=your_groq_key_here
+
+# Gemini (Agents 2 & 3) — get from https://aistudio.google.com
+export GOOGLE_API_KEY=your_gemini_key_here
 ```
 
-Get a key at [console.anthropic.com](https://console.anthropic.com/).
+**4. Set up PostgreSQL**
 
-**3. Run the app**
+Make sure PostgreSQL is running and create the claims table:
+
+```sql
+CREATE TABLE claims (
+    id            SERIAL PRIMARY KEY,
+    policy_number TEXT,
+    customer_name TEXT,
+    claim_date    TEXT,
+    claim_amount  FLOAT,
+    photo_path    TEXT,
+    status        TEXT
+);
+```
+
+Update the `DB_CONFIG` in `final_version_1.py` and `database.py` with
+your host, port, database name, and credentials.
+
+**5. Run the app**
 
 ```bash
-streamlit run app/main_app.py
+streamlit run final_version_1.py
 ```
 
-**4. Log in**
-
-The demo login is hardcoded for simplicity:
-- Username: `adjuster`
-- Password: `demo123`
-
-(See the warning in `main_app.py` - replace this with real auth before
-using this anywhere beyond your own machine.)
-
-**5. Try it**
-
-The database is pre-seeded with a few sample policies so you have
-something to test fraud detection against. Try submitting a claim for
-`POL-1001` twice with similar photos to see the fraud check in action,
-and `POL-3003` for a clean first-time claim.
-
-## Sample claim form text to paste in
+**6. Log in**
 
 ```
-Name: Jane Doe
-Policy Number: POL-1001
-Vehicle: 2020 Toyota Camry
-Accident Date: 2026-06-10
-Description: Rear-ended at a stop light, bumper and trunk damaged.
+Username: adjuster
+Password: demo123
 ```
 
-## What this project deliberately leaves out (and why)
+---
 
-- **No LangGraph** - 4 agents running once in sequence don't need a
-  workflow engine. Plain function calls are the workflow.
-- **No vector database / RAG** - there's no large unstructured document
-  to search through. Policy and claim data are structured rows, so a
-  normal SQL query is the right tool, not semantic search.
-- **No Docker** - one Streamlit app plus one SQLite file needs no
-  container orchestration.
-- **No PostgreSQL** - SQLite is a single file, zero setup, perfect for
-  a single-user demo. Swapping to PostgreSQL later only requires
-  changing `utils/database.py` - the rest of the app doesn't change.
+## How to test it
 
-Full reasoning in [`docs/why-no-frameworks.md`](docs/why-no-frameworks.md).
+**Test the fraud detection (the interesting demo):**
+1. Search a policy number that already has a past claim with a photo stored
+2. Upload the same photo again as the "new" accident photo
+3. Agent 2 will flag it as fraud, Agent 3 will not run
 
-## Known limitations (this is a learning project, not production)
+**Test the clean approval path:**
+1. Use a policy number with no prior claims (or use a clearly different photo)
+2. All 3 agents run, cost estimate appears, PDF downloads
 
-- Login is hardcoded, not real authentication.
-- Cost estimates come from the model's general knowledge, not a real
-  parts/labor price list.
-- Photos are stored on local disk, not cloud storage - fine for a demo,
-  but won't survive redeploying the app fresh.
-- No automated test suite (the code was manually verified during
-  development - see commit history).
+---
+
+## Why no LangChain, LangGraph, or vector database
+
+These are real tools that solve real problems — just not the ones this project has.
+
+- **LangChain / LangGraph** are for complex multi-step agent loops, branching
+  workflows, and state that needs to survive crashes. Here, 4 agents run once
+  in a fixed sequence. A plain function call chain does the same job without
+  the overhead.
+
+- **Vector databases (ChromaDB, Pinecone)** are for searching large unstructured
+  documents — like finding the 3 relevant paragraphs from a 200-page policy PDF.
+  Here, the claim data is structured rows in a table. A SQL query is the right
+  tool for structured data.
+
+- **Docker** makes sense when you have multiple services to coordinate. One
+  Streamlit app and one Postgres instance don't need container orchestration.
+
+---
+
+## Planned upgrades (advanced roadmap)
+
+- [ ] Upload PDF claim form instead of typing text — Agent 1 reads it directly
+- [ ] Google Drive integration — photos uploaded to a per-policy Drive folder
+      instead of local disk, persists across deployments
+- [ ] LangGraph orchestration — adds proper state management, retries, and
+      a human-in-the-loop review queue for flagged claims
+- [ ] RAG over policy documents — adjuster uploads the policy PDF, Agent 1
+      checks whether the claimed damage is actually covered
+- [ ] Real repair cost lookup — replace model estimates with a parts/labor
+      pricing API for accurate payout figures
+- [ ] Email the report — send the PDF decision directly to the customer
+
+---
 
 ## License
 
-MIT - use this however you'd like.
+MIT — use this however you like.
