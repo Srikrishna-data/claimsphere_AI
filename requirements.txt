@@ -1,3 +1,22 @@
 streamlit==1.41.1
+
+# LLM Clients
 anthropic==0.42.0
+google-generativeai==0.7.2
+groq==0.9.0
+
+# Data & Backend
+pydantic==2.7.1
+python-dotenv==1.0.1
+requests==2.32.3
+
+# Database
+psycopg2-binary==2.9.9
+SQLAlchemy==2.0.30
+
+# PDF Generation
 fpdf2==2.8.2
+
+# Optional (uncomment if used)
+# langchain==0.2.12
+# langgraph==0.1.19
