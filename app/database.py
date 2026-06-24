@@ -123,6 +123,7 @@ def insert_claim(
 # ====================================================
 # SEED DATA (optional testing)
 # ====================================================
+'''
 def seed_sample_data():
     conn = get_connection()
     cursor = conn.cursor()
@@ -157,3 +158,4 @@ def seed_sample_data():
     conn.commit()
     cursor.close()
     conn.close()
+    '''

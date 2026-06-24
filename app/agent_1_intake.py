@@ -1,34 +1,23 @@
 """
-agent_1_intake.py
-------------------
-Agent 1's job, in plain English:
-  1. Read the claim form (the text the customer typed or uploaded).
-  2. Ask Claude to pull out the important fields: name, policy number,
-     vehicle info, accident date, what happened.
-  3. Look that policy number up in our database to see their claim history.
-  4. Hand both pieces of info to Agent 2.
+Agent 1 (Groq version — updated model)
+Extracts structured fields from the claim form using LLaMA‑3.1 70B on Groq.
 
-There is no "framework" here. This is one function that:
-  - makes one API call to Claude
-  - makes one database query
-  - returns a Python dictionary
-
-That dictionary IS the hand-off to the next agent. You don't need
-LangGraph's "state" concept - a dict you pass into the next function
-call already does the same job.
+changed to model="llama-3.3-70b-versatile"
+"""
+"""
+Agent 1 (Groq version — with JSON extraction)
 """
 
 import json
+import re
+from groq import Groq
 
-from anthropic import Anthropic
+from database import get_claim_history
 
-from utils.database import get_claim_history
-
-client = Anthropic()  # reads ANTHROPIC_API_KEY from your environment automatically
+client = Groq()
 
 EXTRACTION_PROMPT = """You are reading a vehicle insurance claim form.
-Extract the following fields and return ONLY a JSON object, nothing else,
-no markdown code fences, no explanation:
+Extract the following fields and return ONLY a JSON object, nothing else:
 
 {
   "customer_name": string,
@@ -39,30 +28,39 @@ no markdown code fences, no explanation:
   "accident_description": string
 }
 
-If a field is missing from the text, use an empty string for it.
+If a field is missing, use an empty string.
 
 Here is the claim form text:
 """
 
 
+def _extract_json(text: str) -> dict:
+    """
+    Extracts the first JSON object found in the model output.
+    Works even if the model adds extra text.
+    """
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        raise ValueError("No JSON object found in model output:\n" + text)
+    return json.loads(match.group(0))
+
+
 def run_agent_1(claim_form_text: str) -> dict:
-    """
-    Takes the raw text from the uploaded claim form.
-    Returns a dict with the extracted fields AND the customer's claim history.
-    """
-    # --- Step 1: ask Claude to extract structured fields from free text ---
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=512,
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
         messages=[
             {"role": "user", "content": EXTRACTION_PROMPT + claim_form_text}
         ],
+        temperature=0.2,
+        max_tokens=512,
     )
 
-    raw_text = response.content[0].text.strip()
-    extracted_fields = json.loads(raw_text)
+    raw_text = response.choices[0].message.content.strip()
 
-    # --- Step 2: look up this policy number's claim history in our database ---
+    # Extract JSON safely
+    extracted_fields = _extract_json(raw_text)
+
+    # Lookup history
     policy_number = extracted_fields.get("policy_number", "")
     history = get_claim_history(policy_number) if policy_number else []
 
@@ -70,7 +68,6 @@ def run_agent_1(claim_form_text: str) -> dict:
     total_past_payout = sum(c["claim_amount"] for c in history)
     has_fraud_flag_history = any(c["status"] == "flagged_fraud" for c in history)
 
-    # --- Step 3: package everything into one dict for Agent 2 ---
     return {
         "extracted_fields": extracted_fields,
         "claim_history": {

@@ -18,55 +18,71 @@ production system you'd eventually want to ground this in an actual
 parts-and-labor price list rather than relying purely on the model's
 judgment.
 """
+"""
+Agent 3 (Gemini Vision — FINAL FIXED VERSION)
+Damage + cost estimation.
+"""
 
-import base64
 import json
 import re
 from pathlib import Path
+from typing import List
 
-from anthropic import Anthropic
+from google import genai
 
-client = Anthropic()
+client = genai.Client()
 
 
-def _encode_image(image_path: Path) -> dict:
-    media_type = "image/jpeg" if image_path.suffix.lower() in (".jpg", ".jpeg") else "image/png"
-    data = base64.b64encode(image_path.read_bytes()).decode("utf-8")
+def _image_part(path: Path) -> dict:
+    """Return correct Gemini inline_data format."""
+    mime = "image/jpeg" if path.suffix.lower() in (".jpg", ".jpeg") else "image/png"
     return {
-        "type": "image",
-        "source": {"type": "base64", "media_type": media_type, "data": data},
+        "inline_data": {
+            "mime_type": mime,
+            "data": path.read_bytes(),
+        }
     }
 
 
-def run_agent_3(photo_paths: list[Path], vehicle_make: str, vehicle_model: str) -> dict:
-    """
-    Returns a dict with the damaged parts found, severity, and an
-    estimated total repair cost in dollars.
-    """
-    content = [
-        {
-            "type": "text",
-            "text": (
-                f"This is a damage photo from a {vehicle_make} {vehicle_model} "
-                "vehicle insurance claim. Look at the photo(s) and identify:\n"
-                "1. Which parts are damaged (e.g. front bumper, headlight, door panel)\n"
-                "2. Severity of each: minor, moderate, severe\n"
-                "3. A reasonable estimated total repair cost in USD, based on "
-                "typical body shop labor and parts pricing for this damage\n\n"
-                "Respond with ONLY JSON in this shape:\n"
-                '{"damaged_parts": [{"part": "...", "severity": "..."}], '
-                '"estimated_cost_usd": number, "notes": "short explanation"}'
-            ),
-        }
-    ]
-    for p in photo_paths:
-        content.append(_encode_image(p))
+def _parse_json(raw: str) -> dict:
+    cleaned = re.sub(r"^```json\s*|\s*```$", "", raw.strip())
+    return json.loads(cleaned)
 
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=500,
-        messages=[{"role": "user", "content": content}],
+
+def run_agent_3(photo_paths: List[Path], vehicle_make: str, vehicle_model: str) -> dict:
+    """
+    Returns:
+      {
+        "damaged_parts": [{"part": "...", "severity": "..."}],
+        "estimated_cost_usd": number,
+        "notes": "short explanation"
+      }
+    """
+    prompt = (
+        f"You are analyzing damage photos from a {vehicle_make} {vehicle_model}.\n"
+        "Look at the attached photo(s) and identify:\n"
+        "1. Damaged parts (e.g., bumper, headlight, fender)\n"
+        "2. Severity: minor, moderate, severe\n"
+        "3. Estimated total repair cost in USD (reasonable body shop estimate)\n\n"
+        "Respond with ONLY JSON:\n"
+        '{"damaged_parts":[{"part":"...","severity":"..."}],'
+        '"estimated_cost_usd":1234,'
+        '"notes":"short explanation"}'
     )
 
-    cleaned = re.sub(r"^```json\s*|\s*```$", "", response.content[0].text.strip())
-    return json.loads(cleaned)
+    images = [_image_part(p) for p in photo_paths]
+
+    response = client.models.generate_content(
+        model="gemini-3.5-flash",
+        contents=[
+            {
+                "role": "user",
+                "parts": [
+                    {"text": prompt},
+                    *images
+                ]
+            }
+        ],
+    )
+
+    return _parse_json(response.text)
