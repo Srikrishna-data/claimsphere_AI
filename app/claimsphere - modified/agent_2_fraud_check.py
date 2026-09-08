@@ -9,6 +9,12 @@ from typing import List
 
 from google import genai
 
+'''
+just add the api keys, i am removing as git cannot contain secrets
+
+'''
+
+
 client = genai.Client()
 
 

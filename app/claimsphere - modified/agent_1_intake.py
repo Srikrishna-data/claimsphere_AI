@@ -16,6 +16,12 @@ from groq import Groq
 
 from database import get_claim_history
 
+'''
+just add the api keys, i am removing as git cannot contain secrets
+
+'''
+
+
 client = Groq()
 
 EXTRACTION_PROMPT = """You are reading a vehicle insurance claim form.
