@@ -1,0 +1,517 @@
+import weaviate
+from weaviate.classes.config import Configure
+import os
+
+# Best practice: store your credentials in environment variables
+weaviate_url="https://ulue7k1nt5ivdmpdydewa.c0.us-east-1.aws.weaviate.cloud"
+weaviate_api_key = "UG8ybnFTNEVEUi9UVHF3MF9GK0xFYnVrektzNVE5MmRVSDF5dGRCUmdCNmRmQ1FPRXdET3BXMHg2K2lFPV92MjAw"
+
+'''
+if the cluster is inactive, then delete it manually from weaviate.cloud and create a new one
+once u create a new one, u need to change the url: which is found in the endpoint. make sure its - "https://*****"
+also create a new api key as well
+'''
+
+with weaviate.connect_to_weaviate_cloud(
+    cluster_url=weaviate_url,
+    auth_credentials=weaviate_api_key,
+) as client:
+
+   # client.schema.delete_all()
+ 
+    # Create the collection
+    claimsphere_kb = client.collections.create(
+        name="claimsphere_kb",
+        vector_config=Configure.Vectors.text2vec_weaviate(),  # Configure the Weaviate Embeddings vectorizer
+    )
+ 
+    # Define knowledge base
+    knowledge_base = [
+        {
+            "kb_id": "coverage_1",
+            "knowledge_type": "coverage",
+            "coverage_type": "Collision",
+            "description": "Collision coverage applies to accidental damage resulting from collision with another vehicle or object. This includes accidents with other cars, barriers, utility poles, trees, and property damage caused by impact.",
+            "covered_scenarios": [
+                "Car crashes into another vehicle",
+                "Car hits a pole or utility pole",
+                "Car strikes a stationary object",
+                "Parking lot collision with another car"
+            ],
+            "exclusions": [
+                "Damage from natural wear and tear",
+                "Damage from vandalism",
+                "Damage from falling objects (non-collision impact)",
+                "Damage from weather events like hail or wind"
+            ],
+            "typical_deductible": "$500-$1000",
+            "content": "Collision coverage pays for damage to your vehicle when it collides with another vehicle or object. Covered: crashes with cars, barriers, poles, trees. Not covered: wear and tear, vandalism, falling objects, weather damage."
+        },
+        {
+            "kb_id": "coverage_2",
+            "knowledge_type": "coverage",
+            "coverage_type": "Comprehensive",
+            "description": "Comprehensive coverage applies to damage from events other than collisions. This includes weather damage, theft, vandalism, falling objects, fire, and natural disasters.",
+            "covered_scenarios": [
+                "Tree falls on vehicle",
+                "Hail damage to windshield and roof",
+                "Vehicle theft or attempted theft",
+                "Vandalism or keyed paint",
+                "Fire damage",
+                "Flood or water damage",
+                "Falling object strikes windshield"
+            ],
+            "exclusions": [
+                "Collision with vehicles or objects",
+                "Damage from normal wear and tear",
+                "Mechanical failure or electrical issues",
+                "Damage from intentional acts by owner"
+            ],
+            "typical_deductible": "$250-$500",
+            "content": "Comprehensive coverage pays for non-collision damage to your vehicle. Covered: tree falls, hail, theft, vandalism, fire, flood, falling objects. Not covered: collisions, wear and tear, mechanical issues, intentional damage."
+        },
+        {
+            "kb_id": "coverage_3",
+            "knowledge_type": "coverage",
+            "coverage_type": "Full Coverage (Collision + Comprehensive)",
+            "description": "Full coverage combines both collision and comprehensive coverage, providing protection against all accidental damage scenarios including collisions and weather/theft events.",
+            "covered_scenarios": [
+                "Any collision damage",
+                "Any weather or theft damage",
+                "Multiple damage types in single incident"
+            ],
+            "exclusions": [
+                "Damage from normal wear and tear",
+                "Mechanical or electrical failure",
+                "Intentional damage by owner"
+            ],
+            "typical_deductible": "$500-$1000 combined",
+            "content": "Full coverage includes both collision and comprehensive. Covers: collisions, weather, theft, vandalism, fire, falling objects. Not covered: wear and tear, mechanical issues, intentional damage."
+        },
+        {
+            "kb_id": "coverage_4",
+            "knowledge_type": "coverage",
+            "coverage_type": "Liability Only",
+            "description": "Liability coverage pays for damage and injuries you cause to others. It does not cover damage to your own vehicle.",
+            "covered_scenarios": [
+                "You hit another car and cause injury to occupants",
+                "You damage someone else's property",
+                "Legal fees from accident you caused"
+            ],
+            "exclusions": [
+                "Damage to your own vehicle",
+                "Your own medical bills",
+                "Intentional damage"
+            ],
+            "typical_deductible": "$0 (usually)",
+            "content": "Liability only covers damage and injuries you cause to others. Covered: other vehicle damage, injuries to other people, legal fees. Not covered: your vehicle damage, your injuries."
+        },
+        {
+            "kb_id": "repair_cost_1",
+            "knowledge_type": "repair_cost",
+            "make": "Honda",
+            "model": "Civic",
+            "year_range": "2020-2024",
+            "common_accident_parts": [
+                {
+                    "part": "Front Bumper",
+                    "severity_minor": "$300-$500",
+                    "severity_moderate": "$800-$1200",
+                    "severity_severe": "$1500-$2200"
+                },
+                {
+                    "part": "Windshield",
+                    "severity_minor": "$250-$400",
+                    "severity_moderate": "$400-$600",
+                    "severity_severe": "$600-$900"
+                },
+                {
+                    "part": "Headlight Assembly",
+                    "severity_minor": "$200-$350",
+                    "severity_moderate": "$350-$550",
+                    "severity_severe": "$550-$800"
+                },
+                {
+                    "part": "Hood",
+                    "severity_minor": "$400-$700",
+                    "severity_moderate": "$700-$1100",
+                    "severity_severe": "$1100-$1600"
+                },
+                {
+                    "part": "Driver Door",
+                    "severity_minor": "$500-$800",
+                    "severity_moderate": "$800-$1300",
+                    "severity_severe": "$1300-$2000"
+                }
+            ],
+            "content": "Honda Civic 2020-2024 repair costs. Bumper: $300-$2200. Windshield: $250-$900. Headlight: $200-$800. Hood: $400-$1600. Door: $500-$2000."
+        },
+        {
+            "kb_id": "repair_cost_2",
+            "knowledge_type": "repair_cost",
+            "make": "Toyota",
+            "model": "Camry",
+            "year_range": "2020-2024",
+            "common_accident_parts": [
+                {
+                    "part": "Front Bumper",
+                    "severity_minor": "$350-$600",
+                    "severity_moderate": "$900-$1400",
+                    "severity_severe": "$1600-$2400"
+                },
+                {
+                    "part": "Windshield",
+                    "severity_minor": "$280-$450",
+                    "severity_moderate": "$450-$700",
+                    "severity_severe": "$700-$1050"
+                },
+                {
+                    "part": "Headlight Assembly",
+                    "severity_minor": "$250-$400",
+                    "severity_moderate": "$400-$650",
+                    "severity_severe": "$650-$950"
+                },
+                {
+                    "part": "Fender",
+                    "severity_minor": "$400-$700",
+                    "severity_moderate": "$700-$1200",
+                    "severity_severe": "$1200-$1800"
+                },
+                {
+                    "part": "Door",
+                    "severity_minor": "$600-$900",
+                    "severity_moderate": "$900-$1500",
+                    "severity_severe": "$1500-$2300"
+                }
+            ],
+            "content": "Toyota Camry 2020-2024 repair costs. Bumper: $350-$2400. Windshield: $280-$1050. Headlight: $250-$950. Fender: $400-$1800. Door: $600-$2300."
+        },
+        {
+            "kb_id": "repair_cost_3",
+            "knowledge_type": "repair_cost",
+            "make": "Ford",
+            "model": "F-150",
+            "year_range": "2020-2024",
+            "common_accident_parts": [
+                {
+                    "part": "Front Bumper",
+                    "severity_minor": "$400-$700",
+                    "severity_moderate": "$1000-$1600",
+                    "severity_severe": "$1800-$2700"
+                },
+                {
+                    "part": "Windshield",
+                    "severity_minor": "$300-$500",
+                    "severity_moderate": "$500-$800",
+                    "severity_severe": "$800-$1200"
+                },
+                {
+                    "part": "Hood",
+                    "severity_minor": "$500-$800",
+                    "severity_moderate": "$800-$1400",
+                    "severity_severe": "$1400-$2100"
+                },
+                {
+                    "part": "Fender",
+                    "severity_minor": "$600-$1000",
+                    "severity_moderate": "$1000-$1600",
+                    "severity_severe": "$1600-$2400"
+                },
+                {
+                    "part": "Door (Crew Cab)",
+                    "severity_minor": "$800-$1200",
+                    "severity_moderate": "$1200-$1900",
+                    "severity_severe": "$1900-$2800"
+                }
+            ],
+            "content": "Ford F-150 2020-2024 repair costs. Bumper: $400-$2700. Windshield: $300-$1200. Hood: $500-$2100. Fender: $600-$2400. Door: $800-$2800."
+        },
+        {
+            "kb_id": "repair_cost_4",
+            "knowledge_type": "repair_cost",
+            "make": "Chevrolet",
+            "model": "Silverado",
+            "year_range": "2020-2024",
+            "common_accident_parts": [
+                {
+                    "part": "Front Bumper",
+                    "severity_minor": "$400-$700",
+                    "severity_moderate": "$1000-$1600",
+                    "severity_severe": "$1800-$2700"
+                },
+                {
+                    "part": "Windshield",
+                    "severity_minor": "$300-$500",
+                    "severity_moderate": "$500-$800",
+                    "severity_severe": "$800-$1200"
+                },
+                {
+                    "part": "Hood",
+                    "severity_minor": "$500-$800",
+                    "severity_moderate": "$800-$1400",
+                    "severity_severe": "$1400-$2100"
+                },
+                {
+                    "part": "Fender",
+                    "severity_minor": "$600-$1000",
+                    "severity_moderate": "$1000-$1600",
+                    "severity_severe": "$1600-$2400"
+                },
+                {
+                    "part": "Door",
+                    "severity_minor": "$800-$1200",
+                    "severity_moderate": "$1200-$1900",
+                    "severity_severe": "$1900-$2800"
+                }
+            ],
+            "content": "Chevrolet Silverado 2020-2024 repair costs. Bumper: $400-$2700. Windshield: $300-$1200. Hood: $500-$2100. Fender: $600-$2400. Door: $800-$2800."
+        },
+        {
+            "kb_id": "repair_cost_5",
+            "knowledge_type": "repair_cost",
+            "make": "Toyota",
+            "model": "Corolla",
+            "year_range": "2020-2024",
+            "common_accident_parts": [
+                {
+                    "part": "Front Bumper",
+                    "severity_minor": "$300-$500",
+                    "severity_moderate": "$700-$1100",
+                    "severity_severe": "$1300-$1900"
+                },
+                {
+                    "part": "Windshield",
+                    "severity_minor": "$250-$400",
+                    "severity_moderate": "$400-$600",
+                    "severity_severe": "$600-$900"
+                },
+                {
+                    "part": "Headlight Assembly",
+                    "severity_minor": "$200-$350",
+                    "severity_moderate": "$350-$550",
+                    "severity_severe": "$550-$800"
+                },
+                {
+                    "part": "Hood",
+                    "severity_minor": "$350-$600",
+                    "severity_moderate": "$600-$1000",
+                    "severity_severe": "$1000-$1500"
+                },
+                {
+                    "part": "Door",
+                    "severity_minor": "$450-$750",
+                    "severity_moderate": "$750-$1200",
+                    "severity_severe": "$1200-$1800"
+                }
+            ],
+            "content": "Toyota Corolla 2020-2024 repair costs. Bumper: $300-$1900. Windshield: $250-$900. Headlight: $200-$800. Hood: $350-$1500. Door: $450-$1800."
+        },
+        {
+            "kb_id": "repair_cost_6",
+            "knowledge_type": "repair_cost",
+            "make": "Honda",
+            "model": "Accord",
+            "year_range": "2020-2024",
+            "common_accident_parts": [
+                {
+                    "part": "Front Bumper",
+                    "severity_minor": "$350-$600",
+                    "severity_moderate": "$850-$1350",
+                    "severity_severe": "$1500-$2200"
+                },
+                {
+                    "part": "Windshield",
+                    "severity_minor": "$270-$430",
+                    "severity_moderate": "$430-$650",
+                    "severity_severe": "$650-$950"
+                },
+                {
+                    "part": "Headlight Assembly",
+                    "severity_minor": "$250-$400",
+                    "severity_moderate": "$400-$650",
+                    "severity_severe": "$650-$950"
+                },
+                {
+                    "part": "Fender",
+                    "severity_minor": "$400-$700",
+                    "severity_moderate": "$700-$1200",
+                    "severity_severe": "$1200-$1800"
+                },
+                {
+                    "part": "Door",
+                    "severity_minor": "$550-$850",
+                    "severity_moderate": "$850-$1350",
+                    "severity_severe": "$1350-$2000"
+                }
+            ],
+            "content": "Honda Accord 2020-2024 repair costs. Bumper: $350-$2200. Windshield: $270-$950. Headlight: $250-$950. Fender: $400-$1800. Door: $550-$2000."
+        },
+        {
+            "kb_id": "repair_cost_7",
+            "knowledge_type": "repair_cost",
+            "make": "Nissan",
+            "model": "Altima",
+            "year_range": "2020-2024",
+            "common_accident_parts": [
+                {
+                    "part": "Front Bumper",
+                    "severity_minor": "$320-$550",
+                    "severity_moderate": "$800-$1250",
+                    "severity_severe": "$1400-$2100"
+                },
+                {
+                    "part": "Windshield",
+                    "severity_minor": "$260-$420",
+                    "severity_moderate": "$420-$640",
+                    "severity_severe": "$640-$950"
+                },
+                {
+                    "part": "Headlight Assembly",
+                    "severity_minor": "$220-$380",
+                    "severity_moderate": "$380-$600",
+                    "severity_severe": "$600-$900"
+                },
+                {
+                    "part": "Hood",
+                    "severity_minor": "$380-$650",
+                    "severity_moderate": "$650-$1050",
+                    "severity_severe": "$1050-$1600"
+                },
+                {
+                    "part": "Door",
+                    "severity_minor": "$500-$800",
+                    "severity_moderate": "$800-$1300",
+                    "severity_severe": "$1300-$1900"
+                }
+            ],
+            "content": "Nissan Altima 2020-2024 repair costs. Bumper: $320-$2100. Windshield: $260-$950. Headlight: $220-$900. Hood: $380-$1600. Door: $500-$1900."
+        },
+        {
+            "kb_id": "repair_cost_8",
+            "knowledge_type": "repair_cost",
+            "make": "Ford",
+            "model": "Escape",
+            "year_range": "2020-2024",
+            "common_accident_parts": [
+                {
+                    "part": "Front Bumper",
+                    "severity_minor": "$350-$600",
+                    "severity_moderate": "$850-$1350",
+                    "severity_severe": "$1500-$2200"
+                },
+                {
+                    "part": "Windshield",
+                    "severity_minor": "$280-$450",
+                    "severity_moderate": "$450-$700",
+                    "severity_severe": "$700-$1050"
+                },
+                {
+                    "part": "Headlight Assembly",
+                    "severity_minor": "$240-$400",
+                    "severity_moderate": "$400-$630",
+                    "severity_severe": "$630-$950"
+                },
+                {
+                    "part": "Fender",
+                    "severity_minor": "$450-$750",
+                    "severity_moderate": "$750-$1250",
+                    "severity_severe": "$1250-$1900"
+                },
+                {
+                    "part": "Door",
+                    "severity_minor": "$600-$950",
+                    "severity_moderate": "$950-$1500",
+                    "severity_severe": "$1500-$2300"
+                }
+            ],
+            "content": "Ford Escape 2020-2024 repair costs. Bumper: $350-$2200. Windshield: $280-$1050. Headlight: $240-$950. Fender: $450-$1900. Door: $600-$2300."
+        },
+        {
+            "kb_id": "repair_cost_9",
+            "knowledge_type": "repair_cost",
+            "make": "Chevrolet",
+            "model": "Equinox",
+            "year_range": "2020-2024",
+            "common_accident_parts": [
+                {
+                    "part": "Front Bumper",
+                    "severity_minor": "$350-$600",
+                    "severity_moderate": "$850-$1350",
+                    "severity_severe": "$1500-$2200"
+                },
+                {
+                    "part": "Windshield",
+                    "severity_minor": "$280-$450",
+                    "severity_moderate": "$450-$700",
+                    "severity_severe": "$700-$1050"
+                },
+                {
+                    "part": "Headlight Assembly",
+                    "severity_minor": "$240-$400",
+                    "severity_moderate": "$400-$630",
+                    "severity_severe": "$630-$950"
+                },
+                {
+                    "part": "Fender",
+                    "severity_minor": "$450-$750",
+                    "severity_moderate": "$750-$1250",
+                    "severity_severe": "$1250-$1900"
+                },
+                {
+                    "part": "Door",
+                    "severity_minor": "$600-$950",
+                    "severity_moderate": "$950-$1500",
+                    "severity_severe": "$1500-$2300"
+                }
+            ],
+            "content": "Chevrolet Equinox 2020-2024 repair costs. Bumper: $350-$2200. Windshield: $280-$1050. Headlight: $240-$950. Fender: $450-$1900. Door: $600-$2300."
+        },
+        {
+            "kb_id": "repair_cost_10",
+            "knowledge_type": "repair_cost",
+            "make": "Hyundai",
+            "model": "Elantra",
+            "year_range": "2020-2024",
+            "common_accident_parts": [
+                {
+                    "part": "Front Bumper",
+                    "severity_minor": "$280-$480",
+                    "severity_moderate": "$700-$1100",
+                    "severity_severe": "$1300-$1900"
+                },
+                {
+                    "part": "Windshield",
+                    "severity_minor": "$240-$400",
+                    "severity_moderate": "$400-$600",
+                    "severity_severe": "$600-$900"
+                },
+                {
+                    "part": "Headlight Assembly",
+                    "severity_minor": "$180-$320",
+                    "severity_moderate": "$320-$520",
+                    "severity_severe": "$520-$800"
+                },
+                {
+                    "part": "Hood",
+                    "severity_minor": "$300-$550",
+                    "severity_moderate": "$550-$900",
+                    "severity_severe": "$900-$1400"
+                },
+                {
+                    "part": "Door",
+                    "severity_minor": "$400-$700",
+                    "severity_moderate": "$700-$1150",
+                    "severity_severe": "$1150-$1700"
+                }
+            ],
+            "content": "Hyundai Elantra 2020-2024 repair costs. Bumper: $280-$1900. Windshield: $240-$900. Headlight: $180-$800. Hood: $300-$1400. Door: $400-$1700."
+        }
+    ]
+ 
+    # Insert data into the collection
+    print("Inserting documents into Weaviate...")
+    for doc in knowledge_base:
+        claimsphere_kb.data.insert(doc)
+ 
+    print(f"Successfully inserted {len(knowledge_base)} documents into 'claimsphere_kb' collection!")
+ 

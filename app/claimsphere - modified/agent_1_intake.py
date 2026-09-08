@@ -3,6 +3,8 @@ Agent 1 (Groq version — updated model)
 Extracts structured fields from the claim form using LLaMA‑3.1 70B on Groq.
 
 changed to model="llama-3.3-70b-versatile"
+
+changed to model="openai/gpt-oss-120b"
 """
 """
 Agent 1 (Groq version — with JSON extraction)
@@ -47,7 +49,7 @@ def _extract_json(text: str) -> dict:
 
 def run_agent_1(claim_form_text: str) -> dict:
     response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=[
             {"role": "user", "content": EXTRACTION_PROMPT + claim_form_text}
         ],
