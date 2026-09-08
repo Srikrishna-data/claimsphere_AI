@@ -1,0 +1,101 @@
+#	Topic / Issue	Cause & Technical Details	Solution Provided	Code / Config Evidence
+1	
+Groq Vision Payload Crash
+
+
+messages[0].content must be a string
+
+You switched your model in Agent 3 to openai/gpt-oss-120b. On Groq, gpt-oss-120b is a text-only model. When base64 image objects were passed inside messages[0].content in _analyze_damage, Groq rejected the structured image-array payload.	Split Agent 3 into a two-step pipeline: use a Vision-capable model for image analysis, and use openai/gpt-oss-120b strictly for the text-only cost estimation.	
+Before:
+
+
+python\n# Sent image array to text-only model\nresponse = groq_client.chat.completions.create(\n model="openai/gpt-oss-120b",\n messages=[{"role": "user", "content": content_with_images}]\n)\n
+
+
+After:
+
+
+python\n# Step 1: Vision model for image array\n_analyze_damage(model="qwen/qwen3.6-27b")\n\n# Step 2: Text model for text estimation\n_generate_final_estimate(model="openai/gpt-oss-120b")\n
+
+2	
+Gemini 2.5 Flash Availability Query
+
+
+"now, are you sure is 2.5 flash available ?"
+
+You questioned whether gemini-2.5-flash was available for your vision processing step.	Clarified model string options across Gemini versions (gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash) and offered Groq-native vision models as an alternative.	
+Configuration:
+
+
+python\n# Gemini 2.5 Flash setup\nresponse = gemini_client.models.generate_content(\n model="gemini-2.5-flash",\n contents=[...]\n)\n
+
+3	
+Deprecated Model Usage
+
+
+"dont use llama-3.3-70b-versatile i have already told you its decomminisioned"
+
+You specified that llama-3.3-70b-versatile was decommissioned on the Groq endpoint and requested switching specifically to openai/gpt-oss-120b.	Updated the final text-estimation step in Agent 3 (_generate_final_estimate) to use openai/gpt-oss-120b.	
+Before:
+
+
+python\nmodel="llama-3.3-70b-versatile"\n
+
+
+After:
+
+
+python\nmodel="openai/gpt-oss-120b"\n
+
+4	
+FPDF Unicode Encoding Crash
+
+
+FPDFUnicodeEncodingException: Character "‑" at index 29... outside the range supported by "helvetica"
+
+FPDF standard built-in fonts (Helvetica) only support standard latin-1. LLM output inside cost_result["notes"] contained non-breaking hyphens (\u2011), en-dashes (\u2013), or smart quotes, causing pdf.multi_cell() in agent_4_report.py to crash.	Created a centralized _clean() helper function in agent_4_report.py that intercepts all strings and replaces unsupported Unicode dashes, quotes, and symbols with safe ASCII equivalents.	
+Before:
+
+
+python\npdf.multi_cell(value_width, 7, str(value) if str(value).strip() else "-")\n
+
+
+After:
+
+
+python\ndef _clean(text: str) -> str:\n replacements = {"\u2011": "-", "\u2013": "-", "\u2018": "'", ...}\n for bad, fix in replacements.items():\n text = str(text).replace(bad, fix)\n return text.encode("latin-1", "replace").decode("latin-1")\n\n_row(pdf, label, value): ... pdf.multi_cell(value_width, 7, _clean(value))\n
+
+5	
+PostgreSQL Connection Refused
+
+
+psycopg2.OperationalError: connection to server at "localhost" (127.0.0.1), port 5433 failed
+
+psycopg2 failed to establish a TCP socket connection on port 5433 in final_version_2.py. The PostgreSQL service was either stopped or configured on default port 5432.	
+A. Verified PostgreSQL service in Windows Task Manager / PowerShell.
+
+
+B. Changed port from 5433 to standard 5432 in get_connection().
+
+Before:
+
+
+python\nconn = psycopg2.connect(host="localhost", port=5433, ...)\n
+
+
+After:
+
+
+python\nconn = psycopg2.connect(host="localhost", port=5432, ...)\n
+
+6	
+Git Local Commits Ahead
+
+
+Your branch is ahead of 'origin/main' by 2 commits
+
+You had 2 unpushed local commits on main that contained broken code changes, and you needed to revert your working directory back to origin/main.	Executed a hard Git reset to discard local commits and align local main with remote origin/main.	
+Command Executed:
+
+
+bash\ngit reset --hard origin/main\n
